@@ -1,27 +1,36 @@
 package earth.terrarium.heracles.client.screens.quest.editing;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.teamresourceful.resourcefullib.client.components.CursorWidget;
 import com.teamresourceful.resourcefullib.client.screens.CursorScreen;
 import com.teamresourceful.resourcefullib.client.utils.RenderUtils;
 import earth.terrarium.heracles.Heracles;
+import earth.terrarium.heracles.client.screens.AbstractQuestScreen;
 import earth.terrarium.heracles.client.widgets.editor.MultiLineEditBox;
 import earth.terrarium.heracles.client.widgets.editor.MultilineTextField;
+import earth.terrarium.heracles.client.widgets.modals.ColorPickerModal;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Whence;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Function;
 
 public class QuestMultiLineEditBox extends MultiLineEditBox implements CursorWidget {
 
     private static final ResourceLocation TEXTURE = new ResourceLocation(Heracles.MOD_ID, "textures/gui/editor.png");
+    private static final int TOOLBAR_FIRST_X = 20;
+    private static final int TOOLBAR_BUTTON_SIZE = 11;
+    private static final int COLOR_BUTTON_X = 97;
 
     private CursorScreen.Cursor cursor = null;
+    private int selectedColor = 0xF2D13F;
     
     public QuestMultiLineEditBox(int x, int y, int width, int height) {
         super(Minecraft.getInstance().font, x, y + 13, width, height - 13, text -> {
@@ -62,13 +71,7 @@ public class QuestMultiLineEditBox extends MultiLineEditBox implements CursorWid
             graphics.blit(TEXTURE, this.getX() + 53, this.getY() - 12, 33, isHovered(mouseX, mouseY, 3) ? 11 : 0, 11, 11);
             graphics.blit(TEXTURE, this.getX() + 64, this.getY() - 12, 44, isHovered(mouseX, mouseY, 4) ? 11 : 0, 11, 11);
             graphics.blit(TEXTURE, this.getX() + 75, this.getY() - 12, 55, isHovered(mouseX, mouseY, 5) ? 11 : 0, 11, 11);
-
-            for (int i = 0; i < 8; i++) {
-                graphics.blit(TEXTURE, this.getX() + 97 + i * 11, this.getY() - 12, i * 11, isHovered(mouseX, mouseY, 7 + i) ? 33 : 22, 11, 11);
-            }
-            for (int i = 0; i < 8; i++) {
-                graphics.blit(TEXTURE, this.getX() + 185 + i * 11, this.getY() - 12, i * 11, isHovered(mouseX, mouseY, 15 + i) ? 55 : 44, 11, 11);
-            }
+            renderColorButton(graphics, mouseX, mouseY);
         }
 
         if (this.cursor == null && !canClickText(mouseX, mouseY) && isMouseOver(mouseX, mouseY)) {
@@ -77,7 +80,7 @@ public class QuestMultiLineEditBox extends MultiLineEditBox implements CursorWid
     }
 
     public boolean isHovered(int mouseX, int mouseY, int index) {
-        if (mouseX >= this.getX() + 20 + index * 11 && mouseX < this.getX() + 20 + index * 11 + 11 && mouseY >= this.getY() - 12 && mouseY <= this.getY() - 1) {
+        if (mouseX >= this.getX() + TOOLBAR_FIRST_X + index * TOOLBAR_BUTTON_SIZE && mouseX < this.getX() + TOOLBAR_FIRST_X + index * TOOLBAR_BUTTON_SIZE + TOOLBAR_BUTTON_SIZE && mouseY >= this.getY() - 12 && mouseY <= this.getY() - 1) {
             cursor = CursorScreen.Cursor.POINTER;
             return true;
         }
@@ -87,12 +90,16 @@ public class QuestMultiLineEditBox extends MultiLineEditBox implements CursorWid
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (isMouseOver(mouseX, mouseY) && !canClickText(mouseX, mouseY) && button == 0) {
-            int x = 20;
+            int x = TOOLBAR_FIRST_X;
             for (Buttons value : Buttons.values()) {
-                if (mouseX >= this.getX() + x && mouseX < this.getX() + x + 11 && value.change(this.field)) {
+                if (mouseX >= this.getX() + x && mouseX < this.getX() + x + TOOLBAR_BUTTON_SIZE && value.change(this.field)) {
                     return true;
                 }
-                x += 11;
+                x += TOOLBAR_BUTTON_SIZE;
+            }
+            if (isColorButtonHovered((int) mouseX, (int) mouseY)) {
+                openColorPicker();
+                return true;
             }
             return true;
         }
@@ -108,6 +115,99 @@ public class QuestMultiLineEditBox extends MultiLineEditBox implements CursorWid
         return mouseX >= this.getX() && mouseX <= this.getX() + this.width && mouseY >= this.getY() && mouseY <= this.getY() + this.height;
     }
 
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if ((keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) && applySlashCommandAtCursor()) {
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private boolean applySlashCommandAtCursor() {
+        String value = this.field.value();
+        int cursor = this.field.cursor();
+        int lineStart = Math.max(0, value.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1);
+        int lineEnd = value.indexOf('\n', cursor);
+        if (lineEnd == -1) lineEnd = value.length();
+
+        String trimmed = value.substring(lineStart, lineEnd).trim();
+        String replacement = expandSlashCommand(trimmed);
+        if (replacement == null) return false;
+
+        this.field.replaceRange(lineStart, lineEnd, replacement, true);
+        this.field.insertText("\n");
+        return true;
+    }
+
+    private static String expandSlashCommand(String commandLine) {
+        if (commandLine == null || commandLine.isBlank() || !commandLine.startsWith("/")) return null;
+        String[] parts = commandLine.substring(1).split("\\s+", 2);
+        String command = parts[0].toLowerCase();
+        String payload = parts.length > 1 ? parts[1].trim() : "";
+
+        return switch (command) {
+            case "tip" -> "> **Tip:** " + (payload.isBlank() ? "Add helpful guidance here." : payload);
+            case "warning" -> "> **Warning:** " + (payload.isBlank() ? "Add an important warning here." : payload);
+            case "item" -> {
+                String item = payload.isBlank() ? "minecraft:stone" : payload.replace("`", "");
+                if (item.startsWith("#")) {
+                    yield "<item tag=\"" + item.substring(1) + "\"/>";
+                }
+                yield "<item id=\"" + item + "\"/>";
+            }
+            case "image" -> {
+                String src = payload.isBlank() ? "assets/pictures/example.png" : payload.replace("\"", "");
+                yield "<image src=\"" + src + "\" w=\"240\" h=\"135\" x=\"0\" y=\"0\"/>";
+            }
+            default -> null;
+        };
+    }
+
+    private void renderColorButton(GuiGraphics graphics, int mouseX, int mouseY) {
+        int x = this.getX() + COLOR_BUTTON_X;
+        int y = this.getY() - 12;
+        boolean hovered = isColorButtonHovered(mouseX, mouseY);
+        int frame = hovered ? 0xFFEDEDED : 0xFF8C8C8C;
+        graphics.fill(x, y, x + TOOLBAR_BUTTON_SIZE, y + TOOLBAR_BUTTON_SIZE, frame);
+        graphics.fill(x + 1, y + 1, x + TOOLBAR_BUTTON_SIZE - 1, y + TOOLBAR_BUTTON_SIZE - 1, 0xFF1F1F1F);
+        graphics.fill(x + 2, y + 2, x + TOOLBAR_BUTTON_SIZE - 2, y + TOOLBAR_BUTTON_SIZE - 2, 0xFF000000 | this.selectedColor);
+        if (hovered) {
+            graphics.drawString(Minecraft.getInstance().font, "C", x + 3, y + 2, 0xFFFFFFFF, false);
+            this.cursor = CursorScreen.Cursor.POINTER;
+        }
+    }
+
+    private boolean isColorButtonHovered(int mouseX, int mouseY) {
+        int x = this.getX() + COLOR_BUTTON_X;
+        return mouseX >= x && mouseX < x + TOOLBAR_BUTTON_SIZE && mouseY >= this.getY() - 12 && mouseY <= this.getY() - 1;
+    }
+
+    private void openColorPicker() {
+        if (!(Minecraft.getInstance().screen instanceof AbstractQuestScreen<?> screen)) {
+            return;
+        }
+        ColorPickerModal modal = new ColorPickerModal(
+            Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+            Minecraft.getInstance().getWindow().getGuiScaledHeight(),
+            this.selectedColor,
+            this::applyHexColor
+        );
+        screen.addTemporary(modal);
+        modal.setVisible(true);
+    }
+
+    private void applyHexColor(int color) {
+        this.selectedColor = color & 0xFFFFFF;
+        String hex = String.format(Locale.ROOT, "%06X", this.selectedColor);
+        if (this.field.hasSelection()) {
+            String selected = this.field.getSelectedText();
+            this.field.insertText("/#{" + hex + "}/" + selected + "/#/");
+            return;
+        }
+        this.field.insertText("/#{" + hex + "}//#/");
+        this.field.seekCursor(Whence.RELATIVE, -3);
+    }
+
     private enum Buttons {
         BOLD("**"),
         ITALIC("--"),
@@ -119,23 +219,6 @@ public class QuestMultiLineEditBox extends MultiLineEditBox implements CursorWid
             return true;
         }),
         OBFUSCATED("||"),
-        EMPTY(content -> false),
-        DARK_RED("/4/"),
-        RED("/c/"),
-        GOLD("/6/"),
-        YELLOW("/e/"),
-        DARK_GREEN("/2/"),
-        GREEN("/a/"),
-        AQUA("/b/"),
-        DARK_AQUA("/3/"),
-        DARK_BLUE("/1/"),
-        BLUE("/9/"),
-        LIGHT_PURPLE("/d/"),
-        DARK_PURPLE("/5/"),
-        WHITE("/f/"),
-        GRAY("/7/"),
-        DARK_GRAY("/8/"),
-        BLACK("/0/"),
         ;
         private final Function<MultilineTextField, Boolean> change;
 

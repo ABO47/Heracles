@@ -9,6 +9,7 @@ import com.teamresourceful.resourcefullib.common.network.defaults.CodecPacketTyp
 import earth.terrarium.heracles.Heracles;
 import earth.terrarium.heracles.api.quests.Quest;
 import earth.terrarium.heracles.client.handlers.ClientQuests;
+import earth.terrarium.heracles.client.screens.quests.QuestsWidget;
 import earth.terrarium.heracles.common.utils.ModUtils;
 import net.minecraft.resources.ResourceLocation;
 
@@ -48,7 +49,37 @@ public record ClientboundAddQuestPacket(
 
         @Override
         public Runnable handle(ClientboundAddQuestPacket message) {
-            return () -> ClientQuests.addQuest(message.id, message.quest);
+            return () -> {
+                ClientQuests.get(message.id).ifPresentOrElse(existing -> {
+                    Quest existingQuest = existing.value();
+                    Quest newQuest = message.quest;
+                    existingQuest.display().setIcon(newQuest.display().icon());
+                    existingQuest.display().setIconBackground(newQuest.display().iconBackground());
+                    existingQuest.display().setTitle(newQuest.display().title());
+                    existingQuest.display().setSubtitle(newQuest.display().subtitle());
+                    existingQuest.display().setDescription(newQuest.display().description());
+                    existingQuest.display().groups().clear();
+                    existingQuest.display().groups().putAll(newQuest.display().groups());
+                    existingQuest.settings().update(newQuest.settings());
+                    existingQuest.dependencies().clear();
+                    existingQuest.dependencies().addAll(newQuest.dependencies());
+                    existingQuest.tasks().clear();
+                    existingQuest.tasks().putAll(newQuest.tasks());
+                    existingQuest.rewards().clear();
+                    existingQuest.rewards().putAll(newQuest.rewards());
+                    existing.dependencies().clear();
+                    for (String depId : existingQuest.dependencies()) {
+                        ClientQuests.get(depId).ifPresent(depEntry -> existing.dependencies().add(depEntry));
+                    }
+                    existing.dependents().clear();
+                    for (ClientQuests.QuestEntry e : ClientQuests.entries()) {
+                        if (!e.value().dependencies().contains(existing.key())) continue;
+                        existing.dependents().add(e);
+                    }
+                    QuestsWidget.refreshOpenScreens();
+                }, () -> ClientQuests.addQuest(message.id, message.quest));
+                QuestsWidget.refreshOpenScreens();
+            };
         }
     }
 }

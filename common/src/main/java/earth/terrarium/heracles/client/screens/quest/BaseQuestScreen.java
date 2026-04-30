@@ -20,7 +20,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -218,6 +217,22 @@ public abstract class BaseQuestScreen extends AbstractQuestScreen<QuestContent> 
 
     public boolean isEditing() {
         return this instanceof QuestEditScreen;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (isTemporaryWidgetVisible()) {
+            return super.mouseScrolled(mouseX, mouseY, delta);
+        }
+        GuiEventListener taskList = getTaskList();
+        if (this.tasks != null && this.tasks.isSelected() && taskList != null && taskList.mouseScrolled(mouseX, mouseY, delta)) {
+            return true;
+        }
+        GuiEventListener rewardList = getRewardList();
+        if (this.rewards != null && this.rewards.isSelected() && rewardList != null && rewardList.mouseScrolled(mouseX, mouseY, delta)) {
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override

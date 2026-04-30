@@ -37,10 +37,9 @@ public class SelectableImageButton extends ImageButton implements ThemedButton {
 
     @Override
     public void onPress() {
-        if (!isSelected()) {
-            super.onPress();
-        }
-        setSelected(true);
+        
+        super.onPress();
+        setSelected(!isSelected());
     }
 
     public void setSelected(boolean selected) {

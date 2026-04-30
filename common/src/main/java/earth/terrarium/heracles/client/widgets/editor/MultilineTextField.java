@@ -82,6 +82,12 @@ public class MultilineTextField {
 		return this.selectCursor;
 	}
 
+	public void selectAll() {
+		this.cursor = this.value.length();
+		this.selectCursor = 0;
+		this.cursorListener.run();
+	}
+
 	public void setCursor(int cursor) {
 		this.cursor = cursor;
 	}
@@ -150,7 +156,7 @@ public class MultilineTextField {
 			Minecraft.getInstance().keyboardHandler.setClipboard(this.getSelectedText());
 			return true;
 		} else if (Screen.isPaste(i)) {
-			this.insertText(Minecraft.getInstance().keyboardHandler.getClipboard());
+			this.insertText(cleanPastedText(Minecraft.getInstance().keyboardHandler.getClipboard()));
 			return true;
 		} else if (Screen.isCut(i)) {
 			Minecraft.getInstance().keyboardHandler.setClipboard(this.getSelectedText());
@@ -331,6 +337,42 @@ public class MultilineTextField {
 		 }
 		this.reflowDisplayLines();
 		this.cursorListener.run();
+	}
+
+	public void replaceRange(int beginIndex, int endIndex, String replacement, boolean updateHistory) {
+		int begin = Mth.clamp(Math.min(beginIndex, endIndex), 0, this.value.length());
+		int end = Mth.clamp(Math.max(beginIndex, endIndex), 0, this.value.length());
+		String safe = SharedConstants.filterText(replacement.replace("Â§", "&&"), true);
+		this.value = new StringBuilder(this.value).replace(begin, end, safe).toString();
+		this.cursor = begin + safe.length();
+		this.selectCursor = this.cursor;
+		this.onValueChange(updateHistory);
+	}
+
+	public static String cleanPastedText(String raw) {
+		if (raw == null || raw.isEmpty()) return "";
+		String text = raw
+			.replace("\r\n", "\n")
+			.replace('\r', '\n')
+			.replace('\u00A0', ' ')
+			.replace('\u2018', '\'')
+			.replace('\u2019', '\'')
+			.replace('\u201C', '"')
+			.replace('\u201D', '"')
+			.replace('\u2013', '-')
+			.replace('\u2014', '-')
+			.replace('\u2022', '-')
+			.replace('\u2023', '-')
+			.replace('\u2043', '-');
+		text = text.replace("\t", "    ");
+		StringBuilder sanitized = new StringBuilder(text.length());
+		for (int i = 0; i < text.length(); i++) {
+			char c = text.charAt(i);
+			if (c == '\n' || (c >= ' ' && c != 127)) {
+				sanitized.append(c);
+			}
+		}
+		return sanitized.toString();
 	}
 
 	private void reflowDisplayLines() {

@@ -1,6 +1,8 @@
 package earth.terrarium.heracles.forge;
 
 import earth.terrarium.heracles.client.HeraclesClient;
+import earth.terrarium.heracles.client.handlers.BlueprintsManager;
+import earth.terrarium.heracles.client.handlers.CustomImageManager;
 import earth.terrarium.heracles.client.handlers.DisplayConfig;
 import earth.terrarium.heracles.client.handlers.QuestTutorial;
 import earth.terrarium.heracles.client.screens.pinned.PinnedQuestDisplay;
@@ -26,6 +28,8 @@ public class HeraclesForgeClient {
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         DisplayConfig.load(FMLPaths.GAMEDIR.get());
+        BlueprintsManager.init(FMLPaths.GAMEDIR.get());
+        CustomImageManager.init(FMLPaths.GAMEDIR.get());
         QuestTutorial.load(FMLPaths.CONFIGDIR.get());
         event.enqueueWork(HeraclesClient::init);
         MinecraftForge.EVENT_BUS.addListener(HeraclesForgeClient::onClientTick);
@@ -35,6 +39,12 @@ public class HeraclesForgeClient {
 
     public static void onRegisterKeyBindings(RegisterKeyMappingsEvent event) {
         event.register(HeraclesClient.OPEN_QUESTS);
+        event.register(HeraclesClient.EDITOR_SELECT_MOVE);
+        event.register(HeraclesClient.EDITOR_DRAG);
+        event.register(HeraclesClient.EDITOR_ADD);
+        event.register(HeraclesClient.EDITOR_LINK);
+        event.register(HeraclesClient.EDITOR_GRID_TOGGLE);
+        event.register(HeraclesClient.EDITOR_GRID_LOCK);
     }
 
     public static void onClientTick(TickEvent.ClientTickEvent event) {

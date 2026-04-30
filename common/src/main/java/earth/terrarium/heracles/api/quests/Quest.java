@@ -44,7 +44,7 @@ public record Quest(
      * This is needed as codecs make immutable objects, and we need to be able to add tasks and rewards to the quest.
      */
     private static Quest fromCodec(QuestDisplay display, QuestSettings settings, Set<String> dependencies, Map<String, QuestTask<?, ?, ?>> tasks, Map<String, QuestReward<?>> rewards) {
-        return new Quest(display, settings, dependencies, new HashMap<>(tasks), new HashMap<>(rewards));
+        return new Quest(display, settings, new HashSet<>(dependencies), new HashMap<>(tasks), new HashMap<>(rewards));
     }
 
     public void claimAllowedRewards(ServerPlayer player, String id) {

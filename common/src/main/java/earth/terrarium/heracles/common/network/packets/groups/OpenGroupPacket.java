@@ -52,7 +52,7 @@ public record OpenGroupPacket(String group, boolean edit) implements Packet<Open
                     if (group.isEmpty()) {
                         group = QuestHandler.groups().get(0);
                     }
-                    if (message.edit) {
+                    if (message.edit && ModUtils.canEdit(serverPlayer)) {
                         ModUtils.editGroup(serverPlayer, group);
                     } else {
                         ModUtils.openGroup(serverPlayer, group);

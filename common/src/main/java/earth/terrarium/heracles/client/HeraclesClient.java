@@ -29,8 +29,41 @@ public class HeraclesClient {
         InputConstants.KEY_U,
         "key.categories.odyssey"
     );
+    public static final KeyMapping EDITOR_SELECT_MOVE = new KeyMapping(
+        "key.heracles.editor.select_move",
+        InputConstants.KEY_V,
+        "key.categories.odyssey"
+    );
+    public static final KeyMapping EDITOR_DRAG = new KeyMapping(
+        "key.heracles.editor.drag",
+        InputConstants.KEY_H,
+        "key.categories.odyssey"
+    );
+    public static final KeyMapping EDITOR_ADD = new KeyMapping(
+        "key.heracles.editor.add",
+        InputConstants.KEY_U,
+        "key.categories.odyssey"
+    );
+    public static final KeyMapping EDITOR_LINK = new KeyMapping(
+        "key.heracles.editor.link",
+        InputConstants.KEY_L,
+        "key.categories.odyssey"
+    );
+    public static final KeyMapping EDITOR_GRID_TOGGLE = new KeyMapping(
+        "key.heracles.editor.grid_toggle",
+        InputConstants.KEY_G,
+        "key.categories.odyssey"
+    );
+    public static final KeyMapping EDITOR_GRID_LOCK = new KeyMapping(
+        "key.heracles.editor.grid_lock",
+        InputConstants.KEY_K,
+        "key.categories.odyssey"
+    );
 
     public static String lastGroup = "";
+    public static boolean keepEditMode = false;
+    public static String lastQuestSearch = "";
+    public static boolean focusQuestSearchOnOpen = false;
 
     public static void init() {
         Heracles.setRegistryAccess(() -> {
@@ -57,10 +90,10 @@ public class HeraclesClient {
             } else {
                 DisplayConfig.showTutorial = false;
                 DisplayConfig.save();
-                NetworkHandler.CHANNEL.sendToServer(new OpenGroupPacket(lastGroup, false));
+                NetworkHandler.CHANNEL.sendToServer(new OpenGroupPacket(lastGroup, keepEditMode));
             }
         } else {
-            NetworkHandler.CHANNEL.sendToServer(new OpenGroupPacket(lastGroup, false));
+            NetworkHandler.CHANNEL.sendToServer(new OpenGroupPacket(lastGroup, keepEditMode));
         }
     }
 

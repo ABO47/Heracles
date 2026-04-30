@@ -5,7 +5,9 @@ import earth.terrarium.heracles.Heracles;
 import earth.terrarium.heracles.common.network.packets.*;
 import earth.terrarium.heracles.common.network.packets.groups.CreateGroupPacket;
 import earth.terrarium.heracles.common.network.packets.groups.DeleteGroupPacket;
+import earth.terrarium.heracles.common.network.packets.groups.MoveGroupPacket;
 import earth.terrarium.heracles.common.network.packets.groups.OpenGroupPacket;
+import earth.terrarium.heracles.common.network.packets.groups.RenameGroupPacket;
 import earth.terrarium.heracles.common.network.packets.pinned.SetPinnedQuestPacket;
 import earth.terrarium.heracles.common.network.packets.pinned.SyncPinnedQuestsPacket;
 import earth.terrarium.heracles.common.network.packets.quests.*;
@@ -48,6 +50,8 @@ public class NetworkHandler {
         CHANNEL.register(SetPinnedQuestPacket.TYPE);
         CHANNEL.register(ClaimSelectableRewardsPacket.TYPE);
         CHANNEL.register(DeleteGroupPacket.TYPE);
+        CHANNEL.register(MoveGroupPacket.TYPE);
+        CHANNEL.register(RenameGroupPacket.TYPE);
         CHANNEL.register(CheckTaskPacket.TYPE);
         CHANNEL.register(ManualItemTaskPacket.TYPE);
         CHANNEL.register(ManualXpTaskPacket.TYPE);

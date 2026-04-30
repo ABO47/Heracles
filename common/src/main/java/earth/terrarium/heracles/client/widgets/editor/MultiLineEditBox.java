@@ -3,9 +3,11 @@ package earth.terrarium.heracles.client.widgets.editor;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.teamresourceful.resourcefullib.client.screens.CursorScreen;
 import com.teamresourceful.resourcefullib.client.utils.CursorUtils;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractScrollWidget;
+import net.minecraft.client.gui.components.Whence;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.RenderType;
@@ -17,6 +19,7 @@ public class MultiLineEditBox extends AbstractScrollWidget {
 	protected final Font font;
 	protected final MultilineTextField field;
 	protected final TextHighlighter highlighter;
+    private boolean renderTextContents = true;
 
 	public MultiLineEditBox(Font font, int x, int y, int width, int height, TextHighlighter highlighter) {
 		super(x, y, width, height, CommonComponents.EMPTY);
@@ -32,6 +35,66 @@ public class MultiLineEditBox extends AbstractScrollWidget {
 
 	public String getValue() {
 		return this.field.value();
+	}
+
+	public boolean hasSelection() {
+		return this.field.hasSelection();
+	}
+
+	public String getSelectedText() {
+		return this.field.getSelectedText();
+	}
+
+	public void copySelectionToClipboard() {
+		if (!this.field.hasSelection()) return;
+		Minecraft.getInstance().keyboardHandler.setClipboard(this.field.getSelectedText());
+	}
+
+	public void cutSelectionToClipboard() {
+		if (!this.field.hasSelection()) return;
+		Minecraft.getInstance().keyboardHandler.setClipboard(this.field.getSelectedText());
+		this.field.insertText("");
+	}
+
+	public void pasteFromClipboard() {
+		String clipboard = Minecraft.getInstance().keyboardHandler.getClipboard();
+		this.field.insertText(MultilineTextField.cleanPastedText(clipboard));
+	}
+
+	public void selectAllText() {
+		this.field.selectAll();
+	}
+
+	public void insertTextAtCursor(String text) {
+		this.field.insertText(text);
+	}
+
+	public void seekCursorTo(int index) {
+		this.field.seekCursor(Whence.ABSOLUTE, index);
+	}
+
+	public double getScrollAmountValue() {
+		return this.scrollAmount();
+	}
+
+	public void setScrollAmountValue(double amount) {
+		this.setScrollAmount(amount);
+	}
+
+	public int getLineCount() {
+		return this.field.lines().size();
+	}
+
+	public int getCursorIndex() {
+		return this.field.cursor();
+	}
+
+    public void setRenderTextContents(boolean renderTextContents) {
+        this.renderTextContents = renderTextContents;
+    }
+
+	public void setCursorIndex(int index) {
+		this.field.seekCursor(Whence.ABSOLUTE, index);
 	}
 
 	@Override
@@ -97,6 +160,10 @@ public class MultiLineEditBox extends AbstractScrollWidget {
 
 	@Override
 	protected void renderContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (!this.renderTextContents) {
+            CursorUtils.setCursor(isHovered(), CursorScreen.Cursor.TEXT);
+            return;
+        }
 		String value = this.field.value();
 		int lineX = this.getX() + this.innerPadding();
 		int lineY = this.getY() + this.innerPadding();

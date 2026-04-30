@@ -44,7 +44,7 @@ public record SyncQuestsPacket(Map<String, Quest> quests, List<String> groups) i
 
         @Override
         public void encode(SyncQuestsPacket message, FriendlyByteBuf buffer) {
-            PacketHelper.writeWithRegistryYabn(Heracles.getRegistryAccess(), buffer, QUEST_MAP_CODEC, message.quests(), true);
+            PacketHelper.writeWithRegistryYabn(Heracles.getRegistryAccess(), buffer, QUEST_MAP_CODEC, message.quests(), false);
             buffer.writeCollection(message.groups(), FriendlyByteBuf::writeUtf);
         }
 
@@ -53,7 +53,7 @@ public record SyncQuestsPacket(Map<String, Quest> quests, List<String> groups) i
             YabnElement element = YabnParser.parse(new ByteBufByteReader(buffer));
             try {
                 return new SyncQuestsPacket(
-                    QUEST_MAP_CODEC.parse(RegistryOps.create(YabnOps.COMPRESSED, Heracles.getRegistryAccess()), element).get().orThrow(),
+                    QUEST_MAP_CODEC.parse(RegistryOps.create(YabnOps.INSTANCE, Heracles.getRegistryAccess()), element).get().orThrow(),
                     buffer.readList(FriendlyByteBuf::readUtf)
                 );
             } catch (Exception e) {

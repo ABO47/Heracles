@@ -49,7 +49,7 @@ public record OpenQuestPacket(String group, String quest, boolean edit) implemen
         public Consumer<Player> handle(OpenQuestPacket message) {
             return (player) -> {
                 if (player instanceof ServerPlayer serverPlayer) {
-                    if (message.edit() && player.hasPermissions(2)) {
+                    if (message.edit() && ModUtils.canEdit(serverPlayer)) {
                         ModUtils.openEditQuest(serverPlayer, message.group(), message.quest());
                     } else {
                         ModUtils.openQuest(serverPlayer, message.group(), message.quest());

@@ -24,27 +24,32 @@ public class TextInputModal<T> extends BaseModal {
     private static final int HEIGHT = 57;
 
     private final Component title;
+    private final EnterableEditBox editBox;
 
     private T data;
     private BiConsumer<T, String> callback;
 
     public TextInputModal(int screenWidth, int screenHeight, Component title, BiConsumer<T, String> callback, Predicate<String> validator) {
-        super(screenWidth, screenHeight, WIDTH, HEIGHT);
+        this(screenWidth, screenHeight, title, callback, validator, 1);
+    }
+
+    public TextInputModal(int screenWidth, int screenHeight, Component title, BiConsumer<T, String> callback, Predicate<String> validator, int depth) {
+        super(screenWidth, screenHeight, WIDTH, HEIGHT, depth);
         this.title = title;
         this.callback = callback;
-        var editBox = addChild(new EnterableEditBox(Minecraft.getInstance().font, this.x + 8, this.y + 19, 152, 14, Component.nullToEmpty("Group Name")));
-        editBox.setEnter(value -> {
+        this.editBox = addChild(new EnterableEditBox(Minecraft.getInstance().font, this.x + 8, this.y + 19, 152, 14, Component.nullToEmpty("Group Name")));
+        this.editBox.setEnter(value -> {
             if (!value.isBlank()) {
                 this.callback.accept(this.data, value);
-                editBox.setValue("");
+                this.editBox.setValue("");
                 this.hide();
             }
         });
 
         var submitButton = addChild(createButton(ConstantComponents.SUBMIT, this.x + WIDTH - 7, this.y + HEIGHT - 20, b -> {
-            if (!editBox.getValue().isBlank()) {
-                this.callback.accept(this.data, editBox.getValue());
-                editBox.setValue("");
+            if (!this.editBox.getValue().isBlank()) {
+                this.callback.accept(this.data, this.editBox.getValue());
+                this.editBox.setValue("");
                 this.hide();
             }
         }));
@@ -52,8 +57,8 @@ public class TextInputModal<T> extends BaseModal {
         addChild(createButton(CommonComponents.GUI_CANCEL, submitButton.getX() - 2, this.y + HEIGHT - 20, b ->
             this.hide()
         ));
-        editBox.setMaxLength(32);
-        editBox.setResponder(s -> submitButton.active = !s.trim().isEmpty() && validator.test(s.trim()));
+        this.editBox.setMaxLength(32);
+        this.editBox.setResponder(s -> submitButton.active = !s.trim().isEmpty() && validator.test(s.trim()));
     }
 
     @Override
@@ -103,5 +108,11 @@ public class TextInputModal<T> extends BaseModal {
 
     public void setCallback(BiConsumer<T, String> callback) {
         this.callback = callback;
+    }
+
+    public void setInitialValue(String value) {
+        if (this.editBox != null) {
+            this.editBox.setValue(value == null ? "" : value);
+        }
     }
 }

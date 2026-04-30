@@ -29,6 +29,8 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.function.Function;
+import java.util.List;
+import java.util.Collections;
 
 public class SelectQuestWidget extends BaseWidget {
 
@@ -130,18 +132,30 @@ public class SelectQuestWidget extends BaseWidget {
 
         addChild(ThemedButton.builder(ConstantComponents.X, b -> {
                 if (Minecraft.getInstance().screen instanceof QuestsEditScreen screen && this.entry != null) {
-                    screen.confirmModal().setVisible(true);
-                    screen.confirmModal().setCallback(() -> {
-                        if (this.entry.value().display().groups().size() == 1) {
-                            ClientQuestNetworking.remove(entry.key());
-                        } else {
-                            ClientQuests.updateQuest(entry, quest -> {
-                                quest.display().groups().remove(widget.group());
-                                return NetworkQuestData.builder().groups(quest.display().groups());
-                            });
+                    List<ClientQuests.QuestEntry> toDelete;
+                    if (!widget.getMultiSelectedIds().isEmpty() && widget.getMultiSelectedIds().contains(this.entry.key())) {
+                        toDelete = widget.getMultiSelectedEntries();
+                    } else {
+                        toDelete = List.of(this.entry);
+                    }
+
+                    Runnable deleteAction = () -> {
+                        for (ClientQuests.QuestEntry e : toDelete) {
+                            if (e.value().display().groups().size() == 1) {
+                                ClientQuestNetworking.remove(e.key());
+                            } else {
+                                ClientQuests.updateQuest(e, quest -> {
+                                    quest.display().groups().remove(widget.group());
+                                    return NetworkQuestData.builder().groups(quest.display().groups());
+                                });
+                            }
+                            screen.questsWidget.removeQuest(e);
                         }
-                        screen.questsWidget.removeQuest(this.entry);
-                    });
+                        widget.setMultiSelectedIds(Collections.emptySet());
+                    };
+
+                    screen.confirmModal().setVisible(true);
+                    screen.confirmModal().setCallback(deleteAction);
                 }
                 loseFocusListener = b;
             }).bounds(this.x + 60, this.y + 137, 16, 16)

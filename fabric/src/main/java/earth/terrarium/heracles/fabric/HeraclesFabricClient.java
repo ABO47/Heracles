@@ -1,6 +1,8 @@
 package earth.terrarium.heracles.fabric;
 
 import earth.terrarium.heracles.client.HeraclesClient;
+import earth.terrarium.heracles.client.handlers.BlueprintsManager;
+import earth.terrarium.heracles.client.handlers.CustomImageManager;
 import earth.terrarium.heracles.client.handlers.DisplayConfig;
 import earth.terrarium.heracles.client.handlers.QuestTutorial;
 import earth.terrarium.heracles.client.screens.pinned.PinnedQuestDisplay;
@@ -16,9 +18,17 @@ public class HeraclesFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         DisplayConfig.load(FabricLoader.getInstance().getGameDir());
+        BlueprintsManager.init(FabricLoader.getInstance().getGameDir());
+        CustomImageManager.init(FabricLoader.getInstance().getGameDir());
         QuestTutorial.load(FabricLoader.getInstance().getConfigDir());
         HudRenderCallback.EVENT.register((graphics, partialTicks) -> PinnedQuestDisplay.render(graphics));
         KeyBindingHelper.registerKeyBinding(HeraclesClient.OPEN_QUESTS);
+        KeyBindingHelper.registerKeyBinding(HeraclesClient.EDITOR_SELECT_MOVE);
+        KeyBindingHelper.registerKeyBinding(HeraclesClient.EDITOR_DRAG);
+        KeyBindingHelper.registerKeyBinding(HeraclesClient.EDITOR_ADD);
+        KeyBindingHelper.registerKeyBinding(HeraclesClient.EDITOR_LINK);
+        KeyBindingHelper.registerKeyBinding(HeraclesClient.EDITOR_GRID_TOGGLE);
+        KeyBindingHelper.registerKeyBinding(HeraclesClient.EDITOR_GRID_LOCK);
         ClientTickEvents.START_CLIENT_TICK.register(client -> HeraclesClient.clientTick());
 
         HeraclesClient.initReloadListeners((id, listener) ->

@@ -25,6 +25,7 @@ public final class ConstantComponents {
     public static final Component ARROW_DOWN = Component.literal("▼");
     public static final Component PLUS = Component.literal("+");
     public static final Component X = Component.literal("x");
+    public static final Component MINUS = Component.literal("-");
 
     @Translate("Save")
     public static final Component SAVE = Component.translatable("gui.heracles.save");
@@ -59,16 +60,22 @@ public final class ConstantComponents {
     public static final class Tools {
 
         @Translate("Move/Select [V]")
-        public static final Component MOVE = Component.translatable("gui.heracles.tools.move");
+        public static final Component MOVE = Component.translatable("gui.heracles.tools.move", Component.keybind("key.heracles.editor.select_move"));
 
         @Translate("Hand/Drag Tool [H]")
-        public static final Component DRAG = Component.translatable("gui.heracles.tools.drag");
+        public static final Component DRAG = Component.translatable("gui.heracles.tools.drag", Component.keybind("key.heracles.editor.drag"));
 
         @Translate("Add Quest [U]")
-        public static final Component ADD_QUEST = Component.translatable("gui.heracles.tools.add_quest");
+        public static final Component ADD_QUEST = Component.translatable("gui.heracles.tools.add_quest", Component.keybind("key.heracles.editor.add"));
 
         @Translate("Link Tool [L]")
-        public static final Component LINK = Component.translatable("gui.heracles.tools.link");
+        public static final Component LINK = Component.translatable("gui.heracles.tools.link", Component.keybind("key.heracles.editor.link"));
+
+        @Translate("Toggle Grid")
+        public static final Component GRID = Component.translatable("gui.heracles.tools.grid", Component.keybind("key.heracles.editor.grid_toggle"));
+
+        @Translate("Toggle Grid Lock")
+        public static final Component GRID_LOCK = Component.translatable("gui.heracles.tools.grid_lock", Component.keybind("key.heracles.editor.grid_lock"));
     }
 
     public static final class Groups {

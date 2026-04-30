@@ -3,6 +3,7 @@ package earth.terrarium.heracles.common.network.packets.quests.data;
 import com.teamresourceful.bytecodecs.base.ByteCodec;
 import com.teamresourceful.bytecodecs.base.object.ObjectByteCodec;
 import com.teamresourceful.resourcefullib.common.utils.TriState;
+import earth.terrarium.heracles.Heracles;
 import earth.terrarium.heracles.api.quests.GroupDisplay;
 import earth.terrarium.heracles.api.quests.Quest;
 import earth.terrarium.heracles.api.quests.QuestDisplayStatus;
@@ -111,7 +112,18 @@ public record NetworkQuestData(
             }
             GroupDisplay display = quest.display().groups().computeIfAbsent(id, GroupDisplay::create);
             Vector2i pos = position.apply(display.position());
-            this.groups.put(id, new GroupDisplay(id, pos));
+            this.groups.put(id, display.withPosition(pos));
+            return this;
+        }
+
+        public Builder groupDisplay(Quest quest, String id, UnaryOperator<GroupDisplay> update) {
+            if (this.groups == null) {
+                this.groups = new HashMap<>();
+                this.groups.putAll(quest.display().groups());
+            }
+            GroupDisplay display = this.groups.computeIfAbsent(id, GroupDisplay::create);
+            GroupDisplay updated = update.apply(display);
+            this.groups.put(id, updated);
             return this;
         }
 
@@ -151,12 +163,32 @@ public record NetworkQuestData(
         }
 
         public Builder tasks(Map<String, QuestTask<?, ?, ?>> tasks) {
-            this.tasks = new HashMap<>(tasks);
+            HashMap<String, QuestTask<?, ?, ?>> sanitized = new HashMap<>();
+            for (Map.Entry<String, QuestTask<?, ?, ?>> entry : tasks.entrySet()) {
+                String key = entry.getKey();
+                QuestTask<?, ?, ?> task = entry.getValue();
+                if (key == null || task == null || task.type() == null) {
+                    Heracles.LOGGER.warn("Skipping invalid quest task while preparing update packet. key='{}', task={}", key, task);
+                    continue;
+                }
+                sanitized.put(key, task);
+            }
+            this.tasks = sanitized;
             return this;
         }
 
         public Builder rewards(Map<String, QuestReward<?>> rewards) {
-            this.rewards = new HashMap<>(rewards);
+            HashMap<String, QuestReward<?>> sanitized = new HashMap<>();
+            for (Map.Entry<String, QuestReward<?>> entry : rewards.entrySet()) {
+                String key = entry.getKey();
+                QuestReward<?> reward = entry.getValue();
+                if (key == null || reward == null || reward.type() == null) {
+                    Heracles.LOGGER.warn("Skipping invalid quest reward while preparing update packet. key='{}', reward={}", key, reward);
+                    continue;
+                }
+                sanitized.put(key, reward);
+            }
+            this.rewards = sanitized;
             return this;
         }
 

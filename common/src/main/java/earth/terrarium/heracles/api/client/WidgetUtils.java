@@ -70,34 +70,30 @@ public final class WidgetUtils {
     }
 
     public static void drawEntity(GuiGraphics graphics, int x, int y, int size, Entity entity) {
-        y += (int) (size / 2f);
-        x += (int) (size / 4f);
+        drawEntityInBox(graphics, x, y, size, size, entity, -35.0f);
+    }
+
+    public static void drawEntityInBox(GuiGraphics graphics, int x, int y, int width, int height, Entity entity, float rotationDegrees) {
         Minecraft mc = Minecraft.getInstance();
-        float scaledSize = 25 / (Math.max(entity.getBbWidth(), entity.getBbHeight()));
-        if (Math.abs(entity.getBbHeight() - entity.getBbWidth()) > 5) {
-            scaledSize *= 1.2f;
-        } else if (Math.abs(entity.getBbHeight() - entity.getBbWidth()) == 0) {
-            scaledSize *= 0.8f;
-        }
+        int boxW = Math.max(1, width);
+        int boxH = Math.max(1, height);
+        float bw = Math.max(0.1f, entity.getBbWidth());
+        float bh = Math.max(0.1f, entity.getBbHeight());
+        float fitW = boxW / (bw * 1.05f);
+        float fitH = boxH / (bh * 1.0f);
+        float scaledSize = Math.max(0.1f, Math.min(fitW, fitH));
 
-        scaledSize *= size / 40f;
-
-        x += (int) (size / 40f < 1 ? -6 * size / 40f : 5 * size / 40f);
-        y += (int) (size / 40f < 1 ? -6 * size / 40f : 8 * size / 35f);
-
-        float rot = -45f;
+        float rot = rotationDegrees;
         if (entity instanceof EnderDragon) {
-            // Ender dragon is rotated 180 degrees
-            rot = 225f;
+            rot += 180.0f;
         }
 
-        float entityY = y + 3 - (Math.max(0, size - entity.getBbHeight() * scaledSize));
+        int centerX = x + boxW / 2;
+        int centerY = y + boxH - 4;
         try (var pose = new CloseablePoseStack(graphics)) {
-            pose.translate(14, 20 + 4, 0.5);
-            pose.translate(x - 2, entityY, 1);
+            pose.translate(centerX, centerY, 50.0);
             pose.mulPose(Axis.ZP.rotationDegrees(180.0F));
-            pose.translate(0, 0, 100);
-            pose.scale(-(scaledSize), (scaledSize), 50);
+            pose.scale(scaledSize, scaledSize, scaledSize);
             pose.mulPose(Axis.YP.rotationDegrees(rot));
             EntityRenderDispatcher entityRenderer = mc.getEntityRenderDispatcher();
             MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();

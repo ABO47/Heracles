@@ -98,7 +98,7 @@ public class ModUtils {
         }
         NetworkHandler.CHANNEL.sendToPlayer(new OpenQuestsScreenPacket(
             false,
-            new QuestsContent(group, getQuests(player), player.hasPermissions(2))
+            new QuestsContent(group, getQuests(player), canEdit(player))
         ), player);
     }
 
@@ -110,8 +110,12 @@ public class ModUtils {
         }
         NetworkHandler.CHANNEL.sendToPlayer(new OpenQuestsScreenPacket(
             true,
-            new QuestsContent(group, getQuests(player), player.hasPermissions(2))
+            new QuestsContent(group, getQuests(player), canEdit(player))
         ), player);
+    }
+
+    public static boolean canEdit(ServerPlayer player) {
+        return player.hasPermissions(2) && player.isCreative();
     }
 
     private static Map<String, QuestStatus> getQuests(ServerPlayer player) {
@@ -161,7 +165,7 @@ public class ModUtils {
 
     public static <B> ByteCodec<B> toByteCodec(Codec<B> codec, String notFound, String failedToParse) {
         return ByteCodec.passthrough((buf, item) -> {
-            DataResult<YabnElement> result = codec.encodeStart(RegistryOps.create(YabnOps.COMPRESSED, Heracles.getRegistryAccess()), item);
+            DataResult<YabnElement> result = codec.encodeStart(RegistryOps.create(YabnOps.INSTANCE, Heracles.getRegistryAccess()), item);
             Optional<YabnElement> optional = result.result();
             optional.ifPresentOrElse(element -> {
                 byte[] bytes = element.toFullData();
@@ -174,7 +178,7 @@ public class ModUtils {
                 int length = ByteBufUtils.readVarInt(buf);
                 byte[] bytes = new byte[length];
                 buf.readBytes(bytes);
-                return codec.parse(RegistryOps.create(YabnOps.COMPRESSED, Heracles.getRegistryAccess()), YabnParser.parse(new ArrayByteReader(bytes)))
+                return codec.parse(RegistryOps.create(YabnOps.INSTANCE, Heracles.getRegistryAccess()), YabnParser.parse(new ArrayByteReader(bytes)))
                     .result()
                     .orElseThrow(() -> new RuntimeException(failedToParse));
             }

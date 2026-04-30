@@ -12,20 +12,24 @@ import net.minecraft.client.Minecraft;
 public class ModScreens {
 
     public static void openEditQuestScreen(QuestContent content) {
+        HeraclesClient.keepEditMode = true;
         Minecraft.getInstance().setScreen(new QuestEditScreen(content));
     }
 
     public static void openQuestScreen(QuestContent content) {
+        HeraclesClient.keepEditMode = false;
         Minecraft.getInstance().setScreen(new QuestScreen(content));
     }
 
     public static void openEditQuestsScreen(QuestsContent content) {
         Heracles.LOGGER.debug("Opening edit quests screen for {}", content);
+        HeraclesClient.keepEditMode = true;
         Minecraft.getInstance().setScreen(new QuestsEditScreen(content));
     }
 
     public static void openQuestsScreen(QuestsContent content) {
         Heracles.LOGGER.debug("Opening quests screen for {}", content);
+        HeraclesClient.keepEditMode = false;
         Minecraft.getInstance().setScreen(new QuestsScreen(content));
     }
 }

@@ -71,9 +71,9 @@ public final class QuestSyncer {
         return new Quest(
             display,
             quest.settings(),
-            quest.dependencies(),
-            quest.tasks(),
-            quest.rewards()
+            new HashSet<>(quest.dependencies()),
+            new HashMap<>(quest.tasks()),
+            new HashMap<>(quest.rewards())
         );
     }
 

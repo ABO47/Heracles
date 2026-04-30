@@ -45,8 +45,7 @@ public record DeleteGroupPacket(String group) implements Packet<DeleteGroupPacke
         public Consumer<Player> handle(DeleteGroupPacket message) {
             return (player) -> {
                 if (player.hasPermissions(2) && QuestHandler.groups().contains(message.group)) {
-                    QuestHandler.groups().remove(message.group);
-                    QuestHandler.saveGroups();
+                    QuestHandler.deleteGroup(message.group);
                 }
             };
         }

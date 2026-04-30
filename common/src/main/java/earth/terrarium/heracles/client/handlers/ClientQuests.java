@@ -41,11 +41,7 @@ public class ClientQuests {
         }
 
         GROUPS.addAll(groups);
-        for (QuestEntry value : ENTRIES.values()) {
-            for (String s : value.value.display().groups().keySet()) {
-                BY_GROUPS.computeIfAbsent(s, k -> new ArrayList<>()).add(value);
-            }
-        }
+        rebuildGroupIndex();
     }
 
     public static void syncDescriptions(Map<String, String> descriptions) {
@@ -97,6 +93,7 @@ public class ClientQuests {
 
     public static void remove(String id) {
         QuestEntry quest = ENTRIES.remove(id);
+        STATUS.remove(id);
         BY_GROUPS.values().forEach(list -> list.removeIf(entry -> entry.key().equals(id)));
         if (quest != null) {
             for (QuestEntry dependency : quest.dependencies()) {
@@ -130,7 +127,19 @@ public class ClientQuests {
         for (String s : quest.display().groups().keySet()) {
             BY_GROUPS.computeIfAbsent(s, k -> new ArrayList<>()).add(entry);
         }
+        STATUS.put(id, inferLocalStatus(entry));
         return entry;
+    }
+
+    private static ModUtils.QuestStatus inferLocalStatus(QuestEntry entry) {
+        if (entry == null) return ModUtils.QuestStatus.IN_PROGRESS;
+        for (QuestEntry dependency : entry.dependencies()) {
+            ModUtils.QuestStatus depStatus = STATUS.getOrDefault(dependency.key(), ModUtils.QuestStatus.IN_PROGRESS);
+            if (!depStatus.isComplete()) {
+                return ModUtils.QuestStatus.LOCKED;
+            }
+        }
+        return ModUtils.QuestStatus.IN_PROGRESS;
     }
 
     public static Collection<QuestEntry> entries() {
@@ -170,6 +179,15 @@ public class ClientQuests {
 
     public static void syncGroup(QuestsContent content) {
         STATUS.putAll(content.quests());
+    }
+
+    public static void rebuildGroupIndex() {
+        BY_GROUPS.clear();
+        for (QuestEntry value : ENTRIES.values()) {
+            for (String s : value.value.display().groups().keySet()) {
+                BY_GROUPS.computeIfAbsent(s, k -> new ArrayList<>()).add(value);
+            }
+        }
     }
 
     public record QuestEntry(String key, Quest value, List<QuestEntry> dependencies, List<QuestEntry> dependents) {

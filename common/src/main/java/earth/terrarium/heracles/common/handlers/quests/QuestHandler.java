@@ -1,6 +1,6 @@
 package earth.terrarium.heracles.common.handlers.quests;
 
-import com.google.common.collect.HashBiMap;
+import java.util.concurrent.ConcurrentHashMap;
 import com.google.common.collect.Sets;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -30,7 +30,7 @@ import java.util.function.Predicate;
 
 public class QuestHandler {
 
-    private static final Map<String, Quest> QUESTS = HashBiMap.create();
+    private static final Map<String, Quest> QUESTS = new ConcurrentHashMap<>();
     private static final Set<String> QUEST_KEYS = Sets.newConcurrentHashSet();
     private static final List<String> GROUPS = new ArrayList<>();
     private static final Map<ResourceLocation, Object> TASK_CACHES = new HashMap<>();
@@ -59,6 +59,7 @@ public class QuestHandler {
         }
         QUESTS.clear();
         QUESTS.putAll(tempQuests);
+        QUEST_KEYS.clear();
         QUEST_KEYS.addAll(QUESTS.keySet());
         for (Quest value : QUESTS.values()) {
             value.dependencies().removeIf(Predicate.not(QUESTS::containsKey));
@@ -69,10 +70,14 @@ public class QuestHandler {
 
     private static void load(RegistryAccess access, Reader reader, String id, Map<String, Quest> quests) {
         try {
+            String normalizedId = normalizeLoadedId(id);
             JsonObject element = Constants.PRETTY_GSON.fromJson(reader, JsonObject.class);
             Quest quest = Quest.CODEC.parse(RegistryOps.create(JsonOps.INSTANCE, access), element).getOrThrow(false, Heracles.LOGGER::error);
-            quest.dependencies().remove(id); // Remove self from dependencies
-            quests.put(id, quest);
+            quest.dependencies().remove(normalizedId); // Remove self from dependencies
+            Quest previous = quests.put(normalizedId, quest);
+            if (previous != null) {
+                Heracles.LOGGER.warn("Found duplicate quest id '{}' while loading. Last file wins.", normalizedId);
+            }
         } catch (Exception e) {
             Heracles.LOGGER.error("Failed to load quest " + id, e);
         }
@@ -113,6 +118,7 @@ public class QuestHandler {
             }
             SAVING_FUTURES.put(id, Scheduling.schedule(() -> {
                 try {
+                    removeStaleQuestFiles(id, file.toPath());
                     file.getParentFile().mkdirs();
                     org.apache.commons.io.FileUtils.write(file, Constants.PRETTY_GSON.toJson(json), StandardCharsets.UTF_8);
                 } catch (Exception e) {
@@ -174,6 +180,7 @@ public class QuestHandler {
         QUESTS.remove(questId);
         updateTaskCache();
         QUEST_KEYS.remove(questId);
+        deleteQuestFilesById(questId);
         if (SAVING_FUTURES.containsKey(questId)) SAVING_FUTURES.get(questId).cancel(true);
         SAVING_FUTURES.remove(questId);
         if (delayedDeletion != null) {
@@ -200,6 +207,34 @@ public class QuestHandler {
                 Heracles.LOGGER.error("Failed to remove dead quest files", e);
             }
         }, 1500, TimeUnit.MILLISECONDS);
+    }
+
+    public static void deleteGroup(String group) {
+        if (group == null || group.isBlank() || !GROUPS.contains(group)) return;
+
+        GROUPS.remove(group);
+        saveGroups();
+
+        List<String> affectedQuestIds = new ArrayList<>();
+        for (Map.Entry<String, Quest> entry : QUESTS.entrySet()) {
+            if (entry.getValue().display().groups().containsKey(group)) {
+                affectedQuestIds.add(entry.getKey());
+            }
+        }
+
+        for (String questId : affectedQuestIds) {
+            Quest quest = QUESTS.get(questId);
+            if (quest == null) continue;
+
+            quest.display().groups().remove(group);
+            if (quest.display().groups().isEmpty()) {
+                remove(questId);
+            } else {
+                markDirty(questId);
+            }
+        }
+
+        deleteGroupFolder(group);
     }
 
     public static Map<String, Quest> quests() {
@@ -235,5 +270,113 @@ public class QuestHandler {
 
     public static boolean isTaskUsed(QuestTaskType<?> type) {
         return TASK_CACHES.containsKey(type.id());
+    }
+
+    private static String normalizeLoadedId(String rawId) {
+        if (rawId == null || rawId.isBlank()) return rawId;
+        String normalized = rawId.replace('\\', '/');
+        int slash = normalized.lastIndexOf('/');
+        if (slash >= 0 && slash + 1 < normalized.length()) {
+            normalized = normalized.substring(slash + 1);
+        }
+        if (normalized.endsWith(".json")) {
+            normalized = normalized.substring(0, normalized.length() - 5);
+        }
+        return normalized;
+    }
+
+    private static void removeStaleQuestFiles(String id, Path targetPath) {
+        if (lastPath == null) return;
+        Path questsPath = lastPath.resolve("quests");
+        if (!Files.exists(questsPath)) return;
+        Path normalizedTarget = targetPath.toAbsolutePath().normalize();
+        String questFileName = id + ".json";
+        try (var files = Files.walk(questsPath)) {
+            files.filter(Predicate.not(Files::isDirectory))
+                .filter(FileUtils::isJson)
+                .filter(path -> path.getFileName().toString().equals(questFileName))
+                .map(path -> path.toAbsolutePath().normalize())
+                .filter(path -> !path.equals(normalizedTarget))
+                .forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (Exception e) {
+                        Heracles.LOGGER.warn("Failed to remove stale quest file {}", path, e);
+                    }
+                });
+        } catch (Exception e) {
+            Heracles.LOGGER.warn("Failed to scan stale quest files for {}", id, e);
+        }
+    }
+
+    private static void deleteQuestFilesById(String questId) {
+        if (lastPath == null || questId == null || questId.isBlank()) return;
+        Path questsPath = lastPath.resolve("quests");
+        if (!Files.exists(questsPath)) return;
+
+        String questFileName = questId + ".json";
+        try (var files = Files.walk(questsPath)) {
+            files.filter(Predicate.not(Files::isDirectory))
+                .filter(FileUtils::isJson)
+                .filter(path -> path.getFileName().toString().equals(questFileName))
+                .forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (Exception e) {
+                        Heracles.LOGGER.warn("Failed to delete quest file {}", path, e);
+                    }
+                });
+        } catch (Exception e) {
+            Heracles.LOGGER.warn("Failed to scan quest files for deletion: {}", questId, e);
+        }
+
+        pruneEmptyQuestDirectories(questsPath);
+    }
+
+    private static void deleteGroupFolder(String group) {
+        if (lastPath == null || group == null || group.isBlank()) return;
+        Path questsPath = lastPath.resolve("quests");
+        if (!Files.exists(questsPath)) return;
+
+        Path normalizedQuests = questsPath.toAbsolutePath().normalize();
+        Path groupFolder = normalizedQuests.resolve(groupToFolderName(group)).normalize();
+        if (!groupFolder.startsWith(normalizedQuests) || !Files.exists(groupFolder)) return;
+
+        try (var walk = Files.walk(groupFolder)) {
+            walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (Exception e) {
+                    Heracles.LOGGER.warn("Failed to delete group path {}", path, e);
+                }
+            });
+        } catch (Exception e) {
+            Heracles.LOGGER.warn("Failed to delete group folder {}", groupFolder, e);
+        }
+
+        pruneEmptyQuestDirectories(questsPath);
+    }
+
+    private static void pruneEmptyQuestDirectories(Path questsPath) {
+        if (questsPath == null || !Files.exists(questsPath)) return;
+        try (var walk = Files.walk(questsPath)) {
+            walk.sorted(Comparator.reverseOrder())
+                .filter(Files::isDirectory)
+                .filter(path -> !path.equals(questsPath))
+                .forEach(path -> {
+                    try (var children = Files.list(path)) {
+                        if (children.findAny().isEmpty()) {
+                            Files.deleteIfExists(path);
+                        }
+                    } catch (Exception ignored) {
+                    }
+                });
+        } catch (Exception e) {
+            Heracles.LOGGER.warn("Failed to prune empty quest directories", e);
+        }
+    }
+
+    private static String groupToFolderName(String group) {
+        return ModUtils.findAvailableFolderName(group.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", ""));
     }
 }

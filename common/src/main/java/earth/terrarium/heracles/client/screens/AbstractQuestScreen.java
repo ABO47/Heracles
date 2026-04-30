@@ -95,15 +95,15 @@ public abstract class AbstractQuestScreen<T> extends BaseCursorScreen {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         if (drawSidebar()) {
-            ClientUtils.blitTiling(graphics, HEADING, 0, 15, sideBarWidth, height - 15, 0, 128, 128, 128); // Side Background
-            ClientUtils.blitTiling(graphics, HEADING, sideBarWidth + 2, 15, width - sideBarWidth, height - 15, 128, 128, 128, 128); // Main Background
-            ClientUtils.blitTiling(graphics, HEADING, 0, 0, sideBarWidth, 15, 0, 0, 128, 15); // Side Header
-            ClientUtils.blitTiling(graphics, HEADING, sideBarWidth + 2, 0, width - sideBarWidth, 15, 130, 0, 126, 15); // Main Header
-            ClientUtils.blitTiling(graphics, HEADING, sideBarWidth, 0, 2, 15, 128, 0, 2, 15); // Header Separator
-            ClientUtils.blitTiling(graphics, HEADING, sideBarWidth, 15, 2, height - 15, 128, 15, 2, 113); // Body Separator
+            ClientUtils.blitTiling(graphics, HEADING, 0, 15, sideBarWidth, height - 15, 0, 128, 128, 128); 
+            ClientUtils.blitTiling(graphics, HEADING, sideBarWidth + 2, 15, width - sideBarWidth, height - 15, 128, 128, 128, 128); 
+            ClientUtils.blitTiling(graphics, HEADING, 0, 0, sideBarWidth, 15, 0, 0, 128, 15); 
+            ClientUtils.blitTiling(graphics, HEADING, sideBarWidth + 2, 0, width - sideBarWidth, 15, 130, 0, 126, 15); 
+            ClientUtils.blitTiling(graphics, HEADING, sideBarWidth, 0, 2, 15, 128, 0, 2, 15); 
+            ClientUtils.blitTiling(graphics, HEADING, sideBarWidth, 15, 2, height - 15, 128, 15, 2, 113); 
         } else {
-            ClientUtils.blitTiling(graphics, HEADING, 0, 15, width, height - 15, 128, 128, 128, 128); // Main Background
-            ClientUtils.blitTiling(graphics, HEADING, 0, 0, width, 15, 130, 0, 126, 15); // Main Header
+            ClientUtils.blitTiling(graphics, HEADING, 0, 15, width, height - 15, 128, 128, 128, 128); 
+            ClientUtils.blitTiling(graphics, HEADING, 0, 0, width, 15, 130, 0, 126, 15); 
         }
         RenderSystem.disableBlend();
     }
