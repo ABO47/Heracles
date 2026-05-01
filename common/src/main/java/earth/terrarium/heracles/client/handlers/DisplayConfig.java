@@ -11,6 +11,7 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +21,7 @@ public class DisplayConfig {
 
     private static final String DISPLAY_FILE = "heracles_options.json";
     private static final String HERACLES_DIR = "heracles";
+    private static final String GROUPS_DIR = "groups";
     public static final int MIN_CANVAS_LIMIT_WIDTH = 1446;
     public static final int MIN_CANVAS_LIMIT_HEIGHT = 1037;
 
@@ -515,6 +517,8 @@ public class DisplayConfig {
                         }
                     }
                 }
+
+                loadGroupFiles();
             } else {
                 save();
             }
@@ -540,111 +544,218 @@ public class DisplayConfig {
         displayObject.addProperty("questDescriptionGuideSnapEnabled", questDescriptionGuideSnapEnabled);
         displayObject.addProperty("questDescriptionCenterSnapEnabled", questDescriptionCenterSnapEnabled);
         displayObject.addProperty("questDescriptionGuideSnapDistance", questDescriptionGuideSnapDistance);
-        if (!groupCanvasBackgrounds.isEmpty()) {
-            JsonObject backgrounds = new JsonObject();
-            for (var entry : groupCanvasBackgrounds.entrySet()) {
-                backgrounds.addProperty(entry.getKey(), entry.getValue());
-            }
-            displayObject.add("groupCanvasBackgrounds", backgrounds);
-        }
-        if (!groupCardTextures.isEmpty()) {
-            JsonObject textures = new JsonObject();
-            for (var entry : groupCardTextures.entrySet()) {
-                textures.addProperty(entry.getKey(), entry.getValue());
-            }
-            displayObject.add("groupCardTextures", textures);
-        }
-        if (!groupBackgroundOpacity.isEmpty()) {
-            JsonObject opacities = new JsonObject();
-            for (var entry : groupBackgroundOpacity.entrySet()) {
-                opacities.addProperty(entry.getKey(), Math.max(0, Math.min(100, entry.getValue())));
-            }
-            displayObject.add("groupBackgroundOpacity", opacities);
-        }
-        if (!groupCanvasLimitWidth.isEmpty() || !groupCanvasLimitHeight.isEmpty()) {
-            JsonObject limits = new JsonObject();
-            for (var entry : groupCanvasLimitWidth.entrySet()) {
-                String group = entry.getKey();
-                int width = Math.max(0, entry.getValue());
-                int height = Math.max(0, groupCanvasLimitHeight.getOrDefault(group, 0));
-                if (width <= 0 || height <= 0) continue;
-                JsonObject dim = new JsonObject();
-                dim.addProperty("width", width);
-                dim.addProperty("height", height);
-                limits.add(group, dim);
-            }
-            if (!limits.entrySet().isEmpty()) {
-                displayObject.add("groupCanvasLimits", limits);
-            }
-        }
-        if (!groupCanvasSprites.isEmpty()) {
-            JsonObject spritesRoot = new JsonObject();
-            for (var entry : groupCanvasSprites.entrySet()) {
-                if (entry.getKey() == null || entry.getKey().isBlank()) continue;
-                JsonArray sprites = new JsonArray();
-                for (CanvasSprite sprite : entry.getValue()) {
-                    if (sprite == null || !sprite.isValid()) continue;
-                    JsonObject value = new JsonObject();
-                    value.addProperty("id", sprite.id());
-                    value.addProperty("path", sprite.path());
-                    value.addProperty("x", sprite.x());
-                    value.addProperty("y", sprite.y());
-                    value.addProperty("width", Math.max(1, sprite.width()));
-                    value.addProperty("height", Math.max(1, sprite.height()));
-                    value.addProperty("opacity", Math.max(0, Math.min(100, sprite.opacity())));
-                    sprites.add(value);
-                }
-                if (sprites.size() > 0) {
-                    spritesRoot.add(entry.getKey(), sprites);
-                }
-            }
-            if (!spritesRoot.entrySet().isEmpty()) {
-                displayObject.add("groupCanvasSprites", spritesRoot);
-            }
-        }
-        if (!groupMinimapCollapsed.isEmpty()) {
-            JsonObject collapsedRoot = new JsonObject();
-            for (var entry : groupMinimapCollapsed.entrySet()) {
-                if (entry.getKey() == null || entry.getKey().isBlank() || !entry.getValue()) continue;
-                collapsedRoot.addProperty(entry.getKey(), true);
-            }
-            if (!collapsedRoot.entrySet().isEmpty()) {
-                displayObject.add("groupMinimapCollapsed", collapsedRoot);
-            }
-        }
-        if (!groupInspectorCollapsed.isEmpty()) {
-            JsonObject collapsedRoot = new JsonObject();
-            for (var entry : groupInspectorCollapsed.entrySet()) {
-                if (entry.getKey() == null || entry.getKey().isBlank() || !entry.getValue()) continue;
-                collapsedRoot.addProperty(entry.getKey(), true);
-            }
-            if (!collapsedRoot.entrySet().isEmpty()) {
-                displayObject.add("groupInspectorCollapsed", collapsedRoot);
-            }
-        }
-        if (!groupHiddenConnections.isEmpty()) {
-            JsonObject hiddenRoot = new JsonObject();
-            for (var entry : groupHiddenConnections.entrySet()) {
-                if (entry.getKey() == null || entry.getKey().isBlank()) continue;
-                if (entry.getValue() == null || entry.getValue().isEmpty()) continue;
-                JsonArray keys = new JsonArray();
-                for (String key : entry.getValue()) {
-                    if (key == null || key.isBlank()) continue;
-                    keys.add(key);
-                }
-                if (keys.size() > 0) hiddenRoot.add(entry.getKey(), keys);
-            }
-            if (!hiddenRoot.entrySet().isEmpty()) {
-                displayObject.add("groupHiddenConnections", hiddenRoot);
-            }
-        }
 
         try {
             Files.createDirectories(lastPath);
             FileUtils.write(displayFile, Constants.PRETTY_GSON.toJson(displayObject), StandardCharsets.UTF_8);
+            saveGroupFiles();
         } catch (Exception e) {
             Heracles.LOGGER.error("Error saving {}:", DISPLAY_FILE, e);
         }
+    }
+
+    private static void loadGroupFiles() {
+        if (lastPath == null) return;
+        Path groupsDir = lastPath.resolve(GROUPS_DIR);
+        try {
+            if (!Files.exists(groupsDir)) return;
+            try (var stream = Files.list(groupsDir)) {
+                stream.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().toLowerCase().endsWith(".json"))
+                    .forEach(path -> {
+                        try {
+                            String content = FileUtils.readFileToString(path.toFile(), StandardCharsets.UTF_8);
+                            JsonObject root = Constants.PRETTY_GSON.fromJson(content, JsonObject.class);
+                            if (root == null) return;
+                            String group = GsonHelper.getAsString(root, "group", "");
+                            if (group.isBlank()) {
+                                group = path.getFileName().toString();
+                                group = group.substring(0, group.length() - ".json".length());
+                            }
+                            if (group.isBlank()) return;
+                            readGroupSettings(group, root);
+                        } catch (Exception e) {
+                            Heracles.LOGGER.warn("Failed to read group settings file {}", path, e);
+                        }
+                    });
+            }
+        } catch (Exception e) {
+            Heracles.LOGGER.warn("Failed to load group settings from {}", groupsDir, e);
+        }
+    }
+
+    private static void saveGroupFiles() {
+        if (lastPath == null) return;
+        Path groupsDir = lastPath.resolve(GROUPS_DIR);
+        try {
+            Files.createDirectories(groupsDir);
+            java.util.Set<String> groups = collectAllGroups();
+            java.util.Set<String> expectedFiles = new java.util.HashSet<>();
+
+            for (String group : groups) {
+                if (group == null || group.isBlank()) continue;
+                JsonObject root = createGroupSettings(group);
+                Path file = groupsDir.resolve(sanitizeGroupFileName(group) + ".json");
+                expectedFiles.add(file.getFileName().toString());
+                Files.writeString(
+                    file,
+                    Constants.PRETTY_GSON.toJson(root),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE
+                );
+            }
+
+            try (var stream = Files.list(groupsDir)) {
+                stream.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().toLowerCase().endsWith(".json"))
+                    .filter(path -> !expectedFiles.contains(path.getFileName().toString()))
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (Exception e) {
+                            Heracles.LOGGER.warn("Failed to delete stale group settings file {}", path, e);
+                        }
+                    });
+            }
+        } catch (Exception e) {
+            Heracles.LOGGER.warn("Failed to save group settings files to {}", groupsDir, e);
+        }
+    }
+
+    private static void readGroupSettings(String group, JsonObject root) {
+        String background = GsonHelper.getAsString(root, "canvasBackground", "").trim();
+        if (!background.isBlank()) groupCanvasBackgrounds.put(group, background);
+        else groupCanvasBackgrounds.remove(group);
+
+        String texture = GsonHelper.getAsString(root, "cardTexture", "").trim();
+        if (!texture.isBlank()) groupCardTextures.put(group, texture);
+        else groupCardTextures.remove(group);
+
+        int opacity = Math.max(0, Math.min(100, GsonHelper.getAsInt(root, "backgroundOpacity", 100)));
+        groupBackgroundOpacity.put(group, opacity);
+
+        JsonObject canvasLimit = GsonHelper.getAsJsonObject(root, "canvasLimit", new JsonObject());
+        int width = Math.max(0, GsonHelper.getAsInt(canvasLimit, "width", 0));
+        int height = Math.max(0, GsonHelper.getAsInt(canvasLimit, "height", 0));
+        if (width > 0 && height > 0) {
+            groupCanvasLimitWidth.put(group, Math.max(MIN_CANVAS_LIMIT_WIDTH, width));
+            groupCanvasLimitHeight.put(group, Math.max(MIN_CANVAS_LIMIT_HEIGHT, height));
+        } else {
+            groupCanvasLimitWidth.remove(group);
+            groupCanvasLimitHeight.remove(group);
+        }
+
+        JsonArray sprites = GsonHelper.getAsJsonArray(root, "canvasSprites", new JsonArray());
+        if (sprites.size() > 0) {
+            List<CanvasSprite> list = new ArrayList<>();
+            for (int i = 0; i < sprites.size(); i++) {
+                try {
+                    JsonObject sprite = sprites.get(i).getAsJsonObject();
+                    CanvasSprite value = new CanvasSprite(
+                        GsonHelper.getAsString(sprite, "id", ""),
+                        GsonHelper.getAsString(sprite, "path", ""),
+                        GsonHelper.getAsInt(sprite, "x", 0),
+                        GsonHelper.getAsInt(sprite, "y", 0),
+                        Math.max(1, GsonHelper.getAsInt(sprite, "width", 1)),
+                        Math.max(1, GsonHelper.getAsInt(sprite, "height", 1)),
+                        Math.max(0, Math.min(100, GsonHelper.getAsInt(sprite, "opacity", 100)))
+                    );
+                    if (value.isValid()) list.add(value);
+                } catch (Exception ignored) {
+                }
+            }
+            if (!list.isEmpty()) groupCanvasSprites.put(group, list);
+            else groupCanvasSprites.remove(group);
+        } else {
+            groupCanvasSprites.remove(group);
+        }
+
+        if (GsonHelper.getAsBoolean(root, "minimapCollapsed", false)) groupMinimapCollapsed.put(group, true);
+        else groupMinimapCollapsed.remove(group);
+
+        if (GsonHelper.getAsBoolean(root, "inspectorCollapsed", false)) groupInspectorCollapsed.put(group, true);
+        else groupInspectorCollapsed.remove(group);
+
+        JsonArray hidden = GsonHelper.getAsJsonArray(root, "hiddenConnections", new JsonArray());
+        if (hidden.size() > 0) {
+            java.util.Set<String> set = new java.util.HashSet<>();
+            for (int i = 0; i < hidden.size(); i++) {
+                try {
+                    String key = hidden.get(i).getAsString();
+                    if (key != null && !key.isBlank()) set.add(key.trim());
+                } catch (Exception ignored) {
+                }
+            }
+            if (!set.isEmpty()) groupHiddenConnections.put(group, set);
+            else groupHiddenConnections.remove(group);
+        } else {
+            groupHiddenConnections.remove(group);
+        }
+    }
+
+    private static JsonObject createGroupSettings(String group) {
+        JsonObject root = new JsonObject();
+        root.addProperty("group", group);
+        root.addProperty("canvasBackground", groupCanvasBackgrounds.getOrDefault(group, ""));
+        root.addProperty("cardTexture", groupCardTextures.getOrDefault(group, ""));
+        root.addProperty("backgroundOpacity", getBackgroundOpacity(group));
+
+        JsonObject canvasLimit = new JsonObject();
+        int width = getCanvasLimitWidth(group);
+        int height = getCanvasLimitHeight(group);
+        canvasLimit.addProperty("width", width);
+        canvasLimit.addProperty("height", height);
+        root.add("canvasLimit", canvasLimit);
+
+        JsonArray sprites = new JsonArray();
+        for (CanvasSprite sprite : getCanvasSprites(group)) {
+            if (sprite == null || !sprite.isValid()) continue;
+            JsonObject value = new JsonObject();
+            value.addProperty("id", sprite.id());
+            value.addProperty("path", sprite.path());
+            value.addProperty("x", sprite.x());
+            value.addProperty("y", sprite.y());
+            value.addProperty("width", Math.max(1, sprite.width()));
+            value.addProperty("height", Math.max(1, sprite.height()));
+            value.addProperty("opacity", Math.max(0, Math.min(100, sprite.opacity())));
+            sprites.add(value);
+        }
+        root.add("canvasSprites", sprites);
+
+        root.addProperty("minimapCollapsed", isMinimapCollapsed(group));
+        root.addProperty("inspectorCollapsed", isInspectorCollapsed(group));
+
+        JsonArray hidden = new JsonArray();
+        java.util.Set<String> connections = groupHiddenConnections.get(group);
+        if (connections != null) {
+            for (String key : connections) {
+                if (key == null || key.isBlank()) continue;
+                hidden.add(key);
+            }
+        }
+        root.add("hiddenConnections", hidden);
+        return root;
+    }
+
+    private static java.util.Set<String> collectAllGroups() {
+        java.util.Set<String> groups = new java.util.HashSet<>();
+        groups.addAll(groupCanvasBackgrounds.keySet());
+        groups.addAll(groupCardTextures.keySet());
+        groups.addAll(groupBackgroundOpacity.keySet());
+        groups.addAll(groupCanvasLimitWidth.keySet());
+        groups.addAll(groupCanvasLimitHeight.keySet());
+        groups.addAll(groupCanvasSprites.keySet());
+        groups.addAll(groupMinimapCollapsed.keySet());
+        groups.addAll(groupInspectorCollapsed.keySet());
+        groups.addAll(groupHiddenConnections.keySet());
+        groups.removeIf(group -> group == null || group.isBlank());
+        return groups;
+    }
+
+    private static String sanitizeGroupFileName(String group) {
+        return group.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
     }
 
     private static Path resolveDisplayDirectory(Path path) {
